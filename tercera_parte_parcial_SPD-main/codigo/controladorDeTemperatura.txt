@@ -1,0 +1,283 @@
+/*
+-----------CONSIGNA TERCERA PARTE DEL PARCIAL----------------------------------
+Parte 3: Modificación según el Último Número de Documento
+
+Modifica el proyecto de la Parte 2 de la siguiente manera:
+1. Considerando el último número de tu número de documento (DNI o document de identidad), 
+agrega un componente adicional que afecte el funcionamiento del proyecto.
+Describe en detalle qué hace este nuevo componente y cómo se integra en el proyecto.
+
+-Si tu número de documento termina en (4-6) deberás implementar a tu proyecto la Fotodiodo.
+---------------------------------------------------------------------
+*/
+
+#define B_PIN 13
+#define A_PIN 12
+#define F_PIN 11
+#define G_PIN 10
+#define E_PIN 7
+#define D_PIN 6
+#define C_PIN 5
+#define BOTON_INCREMENTAR 4
+#define BOTON_REDUCIR 3
+#define SWITCH_NUMEROS_PRIMOS 2
+#define DISPLAY_UNIDAD A4
+#define DISPLAY_DECENA A5
+
+#define MOTOR_PIN 9
+#define TMP_PIN A2
+
+#define DIODO A0
+
+int contador = 50;
+int decena;
+int unidad;
+unsigned long tiempoAnterior = 0;
+int intervaloDeTiempo = 100;
+int divisores;
+int lectura;
+int lecturaDiodo;
+
+void encenderSegmento(int sf, int sa, int sb, int sg, int se, int sd, int sc);
+void encenderDisplay(int estadoDecena, int estadoUnidades);
+void mostrarNumeroDisplay(int contador);
+
+/**
+ * Función que setea los pines de los display y los botones
+ */
+void setup()
+{
+  pinMode(A_PIN, OUTPUT);
+  pinMode(B_PIN, OUTPUT);
+  pinMode(C_PIN, OUTPUT);
+  pinMode(D_PIN, OUTPUT);
+  pinMode(E_PIN, OUTPUT);
+  pinMode(F_PIN, OUTPUT);
+  pinMode(G_PIN, OUTPUT);
+  pinMode(BOTON_INCREMENTAR, INPUT_PULLUP);
+  pinMode(BOTON_REDUCIR, INPUT_PULLUP);
+  pinMode(SWITCH_NUMEROS_PRIMOS, INPUT);
+  pinMode(DISPLAY_UNIDAD, OUTPUT);
+  pinMode(DISPLAY_DECENA, OUTPUT);
+
+  pinMode(MOTOR_PIN, OUTPUT);
+  pinMode(TMP_PIN, INPUT); // no es necesario
+  Serial.begin(9600);
+}
+
+/**
+ * Comienzo del contador numerico 
+ */
+void loop()
+{
+  unsigned long tiempoActual = millis();
+  if (tiempoActual - tiempoAnterior >= intervaloDeTiempo)
+  {
+    tiempoAnterior = tiempoActual;
+
+    if (digitalRead(BOTON_INCREMENTAR) == LOW)
+    {
+      if (contador < 99)
+      {
+        contador = contador + 1;
+      }
+      //--------------------------------------
+      if (digitalRead(SWITCH_NUMEROS_PRIMOS) == HIGH)
+      {
+        contador = calcularPrimoSiguiente(contador);
+      }
+      //-------------------------------------
+    }
+
+    if (digitalRead(BOTON_REDUCIR) == LOW)
+    {
+      if (contador > 0)
+      {
+        contador = contador - 1;
+      }
+      //--------------------------------------
+      if (digitalRead(SWITCH_NUMEROS_PRIMOS) == HIGH)
+      {
+        contador = calcularPrimoAnterior(contador);
+      }
+      //--------------------------------------
+    }
+  }
+
+  lectura = analogRead(TMP_PIN);
+  
+  lecturaDiodo = analogRead(DIODO);
+  
+  //mapea los valores de lectura
+  //se le asigna al valor de lectura 20 = -40°
+  //se le asigna al valor de lectura 358 = 125°
+  
+  int datosDiodos = map(lecturaDiodo, 49, 1023, 0, 20);
+  int temperatura = map(lectura, 20, 358, -40, 125);
+  int intensidad = map(temperatura, contador, 125, 100, 200);
+  int intensidadTotal = intensidad +(intensidad * datosDiodos / 100);
+  
+  if (temperatura >= contador)
+  {
+    analogWrite(MOTOR_PIN, intensidadTotal);
+  }
+  else
+  {
+    analogWrite(MOTOR_PIN, 0);
+  }
+  mostrarNumeroDisplay(contador);
+}
+/**
+ * Función que enciende los segmentos según el valor que reciben los parámetros (0, 1)
+ * @param sa posicion segmento A.
+ * @param sb posicion segmento B.
+ * @param sc posicion segmento C.
+ * @param sd posicion segmento D.
+ * @param se posicion segmento E.
+ * @param sf posicion segmento F.
+ * @param sg posicion segmento G.
+ */
+void encenderSegmento(int sf, int sa, int sb, int sg, int se, int sd, int sc)
+{
+  digitalWrite(F_PIN, sf);
+  digitalWrite(A_PIN, sa);
+  digitalWrite(B_PIN, sb);
+  digitalWrite(G_PIN, sg);
+  digitalWrite(E_PIN, se);
+  digitalWrite(D_PIN, sd);
+  digitalWrite(C_PIN, sc);
+}
+
+/**
+ * Función que establece el orden de display a utilizar
+ * @param numero entero que representa el numero a mostrar
+ */
+void seleccionarNumero(int numero)
+{
+  switch (numero)
+  {
+  case 0:
+    encenderSegmento(1, 1, 1, 0, 1, 1, 1);
+    break;
+  case 1:
+    encenderSegmento(0, 0, 1, 0, 0, 0, 1);
+    break;
+  case 2:
+    encenderSegmento(0, 1, 1, 1, 1, 1, 0);
+    break;
+  case 3:
+    encenderSegmento(0, 1, 1, 1, 0, 1, 1);
+    break;
+  case 4:
+    encenderSegmento(1, 0, 1, 1, 0, 0, 1);
+    break;
+  case 5:
+    encenderSegmento(1, 1, 0, 1, 0, 1, 1);
+    break;
+  case 6:
+    encenderSegmento(1, 1, 0, 1, 1, 1, 1);
+    break;
+  case 7:
+    encenderSegmento(0, 1, 1, 0, 0, 0, 1);
+    break;
+  case 8:
+    encenderSegmento(1, 1, 1, 1, 1, 1, 1);
+    break;
+  case 9:
+    encenderSegmento(1, 1, 1, 1, 0, 1, 1);
+    break;
+  }
+}
+
+/**
+ * Función que establece el encendido de los display
+ * @param estadoDecena estado del display de decenas
+ * @param estadoUnidades estado del display de unidades
+ */
+void encenderDisplay(int estadoDecena, int estadoUnidades)
+{
+  digitalWrite(DISPLAY_DECENA, estadoDecena);
+  digitalWrite(DISPLAY_UNIDAD, estadoUnidades);
+}
+
+/**
+ * Función que calcula el siguiente número primo al proporcionado en el parámetro.
+ * @param nuevoNumero entero que representa el número partir del cual se busca el siguiente número primo.
+ * @return devuelve un número entero que representa el siguiente número primo mayor o igual al valor proporcionado en nuevoNumero.
+ */
+int calcularPrimoSiguiente(int nuevoNumero)
+{
+  int divisores = 0;
+  //bucle de validación de número primo
+  for (int i = nuevoNumero - 1; i < nuevoNumero; i++)
+  {
+    //calcular cantidad de divisores
+    for (int j = 2; j < nuevoNumero; j++)
+    {
+      if (nuevoNumero % j == 0)
+      {
+        divisores += 1;
+      }
+    }
+    //verificación de número primo
+    if (divisores != 0)
+    {
+      nuevoNumero = nuevoNumero + 1;
+      divisores = 0;
+    }
+  }
+  if (nuevoNumero > 100)
+  {
+    nuevoNumero = 97;
+  }
+  return nuevoNumero;
+}
+
+/**
+ * Función que calcula el anterior número primo al proporcionado en el parámetro.
+ * @param nuevoNumero entero que representa el número partir del cual se busca el anterior número primo.
+ * @return devuelve un número entero que representa el número primo anterior al valor proporcionado en nuevoNumero.
+ */
+int calcularPrimoAnterior(int nuevoNumero)
+{
+  divisores = 0;
+  //bucle de validación de número primo
+  for (int i = nuevoNumero + 1; i > nuevoNumero; i--)
+  {
+    //calcular cantidad de divisores
+    for (int j = 2; j < nuevoNumero; j++)
+    {
+      if (nuevoNumero % j == 0)
+      {
+        divisores += 1;
+      }
+    }
+    //verificación de número primo
+    if (divisores != 0)
+    {
+      nuevoNumero = nuevoNumero - 1;
+      divisores = 0;
+    }
+  }
+  return nuevoNumero;
+}
+
+/*
+* Función que se encarga de mostrar un número en los display de 7 segmentos.
+* @param numero número entero que se desea mostrar en los display.
+*/
+void mostrarNumeroDisplay(int numero)
+{
+  int decena = numero / 10;
+  int unidad = numero % 10;
+
+  seleccionarNumero(decena);
+  encenderDisplay(0, 1);
+  delay(10);
+  encenderDisplay(1, 1);
+
+  seleccionarNumero(unidad);
+  encenderDisplay(1, 0);
+  delay(10);
+  encenderDisplay(1, 1);
+}
